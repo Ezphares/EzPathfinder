@@ -8,6 +8,7 @@
 
 int ezpf_IsGridPassable(struct ezpf_Grid *grid, struct ezpf_Point point);
 void ezpf_GridAllocateContents(struct ezpf_Grid *grid, int size);
+void ezpf_GridFreeContents(struct ezpf_Grid *grid);
 
 ezpf_NodeID ezpf_CellToID(struct ezpf_Grid *grid, struct ezpf_Point point)
 {
@@ -217,7 +218,7 @@ void ezpf_GridSetCallback(
 
 void ezpf_GridDestroy(struct ezpf_Grid *grid)
 {
-    free(grid->contents);
+    ezpf_GridFreeContents(grid);
 }
 
 int ezpf_GridPathfind(
@@ -251,8 +252,16 @@ int ezpf_IsGridPassable(struct ezpf_Grid *grid, struct ezpf_Point point)
     }
 }
 
+void ezpf_GridFreeContents(struct ezpf_Grid *grid)
+{
+    if (grid->passableMode == GPM_BUFFERCHAR && grid->contents)
+    {
+        free(grid->contents);
+    }
+}
+
 void ezpf_GridAllocateContents(struct ezpf_Grid *grid, int size)
 {
-    free(grid->contents);
+    ezpf_GridFreeContents(grid);
     grid->contents = malloc(size);
 }
