@@ -5,10 +5,14 @@ extern "C"
 {
 #endif
 
+#ifndef EZPF_POINT_TYPE
     struct ezpf_Point
     {
         int x, y;
     };
+#else
+typedef EZPF_POINT_TYPE ezpf_Point
+#endif // !EZPF_POINT_TYPE
 
     typedef int (*ezpf_GridPassable)(void *, struct ezpf_Point);
 
