@@ -30,13 +30,13 @@ typedef EZPF_POINT_TYPE ezpf_Point
             {
                 char *contents;
                 char impassable;
-            };
+            } _buffer;
             struct
             {
                 ezpf_GridPassable passableFunc;
                 void *passableData;
-            };
-        };
+            } _callback;
+        } _passable;
 
         int allowDiagonals;
         float diagonalCost;
