@@ -10,16 +10,42 @@ extern "C"
         int x, y;
     };
 
+    typedef int (*ezpf_GridPassable)(void *, struct ezpf_Point);
+
     struct ezpf_Grid
     {
         struct ezpf_Point dimensions;
-        char *contents;
-        char impassable;
+        enum ezpf_GridPassableMode
+        {
+            GPM_BUFFERCHAR,
+            GPM_CALLBACK,
+        } passableMode;
+        union
+        {
+            struct
+            {
+                char *contents;
+                char impassable;
+            };
+            struct
+            {
+                ezpf_GridPassable passableFunc;
+                void *passableData;
+            };
+        };
+
         int allowDiagonals;
         float diagonalCost;
     };
 
     void ezpf_GridInit(struct ezpf_Grid *grid, int w, int h);
+    void ezpf_GridSetContents(
+        struct ezpf_Grid *grid,
+        char impassable,
+        const char *contents,
+        int contentSize);
+    void ezpf_GridSetCallback(
+        struct ezpf_Grid *grid, ezpf_GridPassable callback, void *userdata);
     void ezpf_GridDestroy(struct ezpf_Grid *grid);
 
     int ezpf_GridPathfind(

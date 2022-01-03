@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+int ezpf_IsGridPassable(struct ezpf_Grid *grid, struct ezpf_Point point);
+void ezpf_GridAllocateContents(struct ezpf_Grid *grid, int size);
+
 ezpf_NodeID ezpf_CellToID(struct ezpf_Grid *grid, struct ezpf_Point point)
 {
     return point.x + point.y * grid->dimensions.x;
@@ -74,8 +77,7 @@ void ezpf_GridDiagonalNeighbors(struct ezpf_Point *buffer, struct ezpf_Point p)
 int ezpf_ValidNode(struct ezpf_Grid *grid, struct ezpf_Point p)
 {
     return p.x >= 0 && p.x < grid->dimensions.x && p.y >= 0
-           && p.y < grid->dimensions.y
-           && grid->contents[ezpf_CellToID(grid, p)] != grid->impassable;
+           && p.y < grid->dimensions.y && ezpf_IsGridPassable(grid, p);
 }
 
 int ezpf_GridNeighborCount(void *grid, ezpf_NodeID node)
@@ -188,11 +190,29 @@ void ezpf_GridInit(struct ezpf_Grid *grid, int w, int h)
 {
     grid->dimensions.x   = w;
     grid->dimensions.y   = h;
-    grid->contents       = malloc(w * h * sizeof(char));
+    grid->contents       = NULL;
     grid->allowDiagonals = 0;
     grid->diagonalCost   = 1.4142f;
+}
 
-    memset(grid->contents, 0, w * h * sizeof(char));
+void ezpf_GridSetContents(
+    struct ezpf_Grid *grid,
+    char impassable,
+    const char *contents,
+    int contentSize)
+{
+    grid->passableMode = GPM_BUFFERCHAR;
+    grid->impassable   = impassable;
+    ezpf_GridAllocateContents(grid, contentSize);
+    memcpy(grid->contents, contents, contentSize);
+}
+
+void ezpf_GridSetCallback(
+    struct ezpf_Grid *grid, ezpf_GridPassable callback, void *userdata)
+{
+    grid->passableMode = GPM_CALLBACK;
+    grid->passableFunc = callback;
+    grid->passableData = userdata;
 }
 
 void ezpf_GridDestroy(struct ezpf_Grid *grid)
@@ -217,4 +237,22 @@ int ezpf_GridPathfindBuffer(
     struct ezpf_Point to)
 {
     return ezpf_GridPathfindInternal(&out_Path, pathMaxLength, grid, from, to);
+}
+
+int ezpf_IsGridPassable(struct ezpf_Grid *grid, struct ezpf_Point point)
+{
+    if (grid->passableMode == GPM_BUFFERCHAR)
+    {
+        return grid->contents[ezpf_CellToID(grid, point)] != grid->impassable;
+    }
+    else
+    {
+        return grid->passableFunc(grid->passableData, point);
+    }
+}
+
+void ezpf_GridAllocateContents(struct ezpf_Grid *grid, int size)
+{
+    free(grid->contents);
+    grid->contents = malloc(size);
 }
