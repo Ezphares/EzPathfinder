@@ -1,4 +1,4 @@
-#include "AStar.h"
+#include "ezpf/AStar.h"
 
 #include <stdlib.h>
 #include <string.h>

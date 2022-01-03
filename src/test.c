@@ -1,5 +1,5 @@
 
-#include "GridPathfinding.h"
+#include "ezpf/GridPathfinding.h"
 
 #include <stdlib.h>
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "GridPathfinding.h"
-#include "AStar.h"
+#include "ezpf/GridPathfinding.h"
+#include "ezpf/AStar.h"
 
 #include <stdlib.h>
 #include <string.h>
