@@ -15,43 +15,31 @@ typedef EZPF_POINT_TYPE ezpf_Point
 #endif // !EZPF_POINT_TYPE
 
     typedef int (*ezpf_GridPassable)(void *, struct ezpf_Point);
+    typedef float (*ezpf_GridCost)(
+        void *, struct ezpf_Point, struct ezpf_Point);
+    typedef float (*ezpf_GridHeuristic)(
+        void *, struct ezpf_Point, struct ezpf_Point);
 
     struct ezpf_Grid
     {
         struct ezpf_Point dimensions;
-        enum ezpf_GridPassableMode
-        {
-            GPM_BUFFERCHAR,
-            GPM_CALLBACK,
-        } passableMode;
-        union
-        {
-            struct
-            {
-                char *contents;
-                char impassable;
-            } _buffer;
-            struct
-            {
-                ezpf_GridPassable passableFunc;
-                void *passableData;
-            } _callback;
-        } _passable;
-
+        ezpf_GridPassable passableFunc;
+        ezpf_GridHeuristic heuristicsOverride;
+        ezpf_GridCost costOverride;
+        void *userData;
         int allowDiagonals;
         float diagonalCost;
     };
 
-    void ezpf_GridInit(struct ezpf_Grid *grid, int w, int h);
-    void ezpf_GridSetContents(
-        struct ezpf_Grid *grid,
-        char impassable,
-        const char *contents,
-        int contentSize);
-    void ezpf_GridSetCallback(
-        struct ezpf_Grid *grid, ezpf_GridPassable callback, void *userdata);
-    void ezpf_GridDestroy(struct ezpf_Grid *grid);
+    struct ezpf_ExplicitGridData
+    {
+        const char *contents;
+        const char impassable;
+        int width;
+    };
+    int ezpf_ExplicitGridPassable(void *explicitGrid, struct ezpf_Point point);
 
+    void ezpf_GridInit(struct ezpf_Grid *grid, int width, int height);
     int ezpf_GridPathfind(
         struct ezpf_Point **out_Path,
         struct ezpf_Grid *grid,

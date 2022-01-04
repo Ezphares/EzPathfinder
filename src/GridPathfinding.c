@@ -7,8 +7,6 @@
 #include <string.h>
 
 int ezpf_IsGridPassable(struct ezpf_Grid *grid, struct ezpf_Point point);
-void ezpf_GridAllocateContents(struct ezpf_Grid *grid, int size);
-void ezpf_GridFreeContents(struct ezpf_Grid *grid);
 
 ezpf_NodeID ezpf_CellToID(struct ezpf_Grid *grid, struct ezpf_Point point)
 {
@@ -23,23 +21,32 @@ struct ezpf_Point ezpf_IDToCell(struct ezpf_Grid *grid, ezpf_NodeID id)
     return p;
 }
 
-float ezpf_EuclideanHeuristic(void *grid, ezpf_NodeID node, ezpf_NodeID target)
+float ezpf_GridHeuristicInternal(
+    void *grid, ezpf_NodeID node, ezpf_NodeID target)
 {
+    struct ezpf_Grid *_grid   = (struct ezpf_Grid *)grid;
     struct ezpf_Point _node   = ezpf_IDToCell(grid, node),
                       _target = ezpf_IDToCell(grid, target);
 
+    if (_grid->heuristicsOverride)
+    {
+        return _grid->heuristicsOverride(_grid->userData, _node, _target);
+    }
+
+    // Fallback to euclidian
     float dx = (float)(_target.x - _node.x);
     float dy = (float)(_target.y - _node.y);
 
     return dx * dx + dy * dy;
 }
 
-float ezpf_GridCost(void *grid, ezpf_NodeID node, ezpf_NodeID target)
+float ezpf_GridCostInternal(void *grid, ezpf_NodeID node, ezpf_NodeID target)
 {
     struct ezpf_Grid *_grid   = (struct ezpf_Grid *)grid;
     struct ezpf_Point _node   = ezpf_IDToCell(grid, node),
                       _target = ezpf_IDToCell(grid, target);
 
+    // Fallback to 1/diagonalcost
     int manhattan = abs(_target.x - _node.x) + abs(_target.y - _node.y);
 
     return manhattan == 1 ? 1.0f : _grid->diagonalCost;
@@ -153,8 +160,8 @@ int ezpf_GridPathfindInternal(
 {
     struct ezpf_AStarSettings settings;
 
-    settings.heuristic     = &ezpf_EuclideanHeuristic;
-    settings.cost          = &ezpf_GridCost;
+    settings.heuristic     = &ezpf_GridHeuristicInternal;
+    settings.cost          = &ezpf_GridCostInternal;
     settings.neighborCount = &ezpf_GridNeighborCount;
     settings.neighbors     = &ezpf_GridGetNeighbors;
     settings.requestBuffer = &ezpf_MallocNodes;
@@ -187,38 +194,24 @@ int ezpf_GridPathfindInternal(
     return l;
 }
 
-void ezpf_GridInit(struct ezpf_Grid *grid, int w, int h)
+int ezpf_ExplicitGridPassable(void *explicitGrid, struct ezpf_Point point)
 {
-    grid->dimensions.x               = w;
-    grid->dimensions.y               = h;
-    grid->_passable._buffer.contents = NULL;
-    grid->allowDiagonals             = 0;
-    grid->diagonalCost               = 1.4142f;
+    struct ezpf_ExplicitGridData *data
+        = (struct ezpf_ExplicitGridData *)explicitGrid;
+
+    return data->contents[point.x + data->width * point.y] != data->impassable;
 }
 
-void ezpf_GridSetContents(
-    struct ezpf_Grid *grid,
-    char impassable,
-    const char *contents,
-    int contentSize)
+void ezpf_GridInit(struct ezpf_Grid *grid, int width, int height)
 {
-    grid->passableMode                 = GPM_BUFFERCHAR;
-    grid->_passable._buffer.impassable = impassable;
-    ezpf_GridAllocateContents(grid, contentSize);
-    memcpy(grid->_passable._buffer.contents, contents, contentSize);
-}
-
-void ezpf_GridSetCallback(
-    struct ezpf_Grid *grid, ezpf_GridPassable callback, void *userdata)
-{
-    grid->passableMode                     = GPM_CALLBACK;
-    grid->_passable._callback.passableFunc = callback;
-    grid->_passable._callback.passableData = userdata;
-}
-
-void ezpf_GridDestroy(struct ezpf_Grid *grid)
-{
-    ezpf_GridFreeContents(grid);
+    grid->dimensions.x       = width;
+    grid->dimensions.y       = height;
+    grid->passableFunc       = NULL;
+    grid->heuristicsOverride = NULL;
+    grid->costOverride       = NULL;
+    grid->userData           = NULL;
+    grid->allowDiagonals     = 0;
+    grid->diagonalCost       = 1.0f;
 }
 
 int ezpf_GridPathfind(
@@ -242,29 +235,5 @@ int ezpf_GridPathfindBuffer(
 
 int ezpf_IsGridPassable(struct ezpf_Grid *grid, struct ezpf_Point point)
 {
-    if (grid->passableMode == GPM_BUFFERCHAR)
-    {
-        return grid->_passable._buffer.contents[ezpf_CellToID(grid, point)]
-               != grid->_passable._buffer.impassable;
-    }
-    else
-    {
-        return grid->_passable._callback.passableFunc(
-            grid->_passable._callback.passableData, point);
-    }
-}
-
-void ezpf_GridFreeContents(struct ezpf_Grid *grid)
-{
-    if (grid->passableMode == GPM_BUFFERCHAR
-        && grid->_passable._buffer.contents)
-    {
-        free(grid->_passable._buffer.contents);
-    }
-}
-
-void ezpf_GridAllocateContents(struct ezpf_Grid *grid, int size)
-{
-    ezpf_GridFreeContents(grid);
-    grid->_passable._buffer.contents = malloc(size);
+    return grid->passableFunc ? grid->passableFunc(grid->userData, point) : 1;
 }
